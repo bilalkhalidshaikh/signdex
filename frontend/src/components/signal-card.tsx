@@ -1,0 +1,258 @@
+"use client";
+
+import {
+  Building2,
+  Car,
+  Check,
+  FileJson,
+  HeartPulse,
+  Loader2,
+  Mail,
+  Mic,
+  Phone,
+  Radar,
+  Scale,
+  ScrollText,
+  Send,
+  Thermometer,
+  type LucideIcon,
+} from "lucide-react";
+import { useState } from "react";
+import { dispatchToAchroCall, exportProfile } from "@/lib/api";
+import { copyText, toast } from "@/lib/toast";
+import { PROVIDER_NAMES, SIGNAL_LABELS, SOURCE_LABELS, type B2BSignal, type Industry, type SignalUrgency } from "@/lib/types";
+import { cn, timeAgo } from "@/lib/utils";
+
+const INDUSTRY_ICONS: Record<Industry, LucideIcon> = {
+  "Healthcare & Dental": HeartPulse,
+  "Legal Intake": Scale,
+  "Automotive Services": Car,
+  "Property Management": Building2,
+  "Commercial HVAC": Thermometer,
+};
+
+const URGENCY_STYLES: Record<SignalUrgency, string> = {
+  CRITICAL: "bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200/70",
+  HIGH: "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200/70",
+  MEDIUM: "bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200/70",
+};
+
+function initials(name: string) {
+  return name
+    .split(" ")
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("");
+}
+
+function ScoreRing({ score }: { score: number }) {
+  const r = 20;
+  const c = 2 * Math.PI * r;
+  const color = score >= 90 ? "#059669" : score >= 80 ? "#4F46E5" : "#94a3b8";
+  return (
+    <div className="flex shrink-0 flex-col items-center gap-1" role="img" aria-label={`AI fit match score ${score} out of 100`}>
+      <div className="relative h-12 w-12">
+        <svg viewBox="0 0 48 48" className="h-full w-full -rotate-90">
+          <circle cx="24" cy="24" r={r} fill="none" stroke="#e2e8f0" strokeWidth="4" />
+          <circle cx="24" cy="24" r={r} fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - score / 100)} />
+        </svg>
+        <span className="absolute inset-0 flex items-center justify-center text-sm font-semibold tabular-nums text-slate-900">{score}</span>
+      </div>
+      <span className="text-[11px] text-slate-500">AI fit</span>
+    </div>
+  );
+}
+
+function IconCopy({ icon: Icon, value, label }: { icon: LucideIcon; value: string; label: string }) {
+  const [done, setDone] = useState(false);
+  async function copy() {
+    if (await copyText(value)) {
+      setDone(true);
+      toast({ title: `${label} copied`, description: value, variant: "success" });
+      setTimeout(() => setDone(false), 1500);
+    } else {
+      toast({ title: "Copy failed", description: "Clipboard access was blocked by the browser.", variant: "error" });
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      aria-label={`Copy ${label.toLowerCase()}: ${value}`}
+      title={`Copy ${label.toLowerCase()}`}
+      className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white hover:text-slate-700 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+    >
+      {done ? <Check className="h-4 w-4 text-emerald-600" /> : <Icon className="h-4 w-4" />}
+    </button>
+  );
+}
+
+interface Props {
+  signal: B2BSignal;
+  now: number;
+  fresh: boolean;
+  onUpdated: (s: B2BSignal) => void;
+  onPitch: (s: B2BSignal) => void;
+  onViewLog: (s: B2BSignal) => void;
+  onTelemetry: (s: B2BSignal) => void;
+}
+
+export function SignalCard({ signal: s, now, fresh, onUpdated, onPitch, onViewLog, onTelemetry }: Props) {
+  const [dispatching, setDispatching] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const IndustryIcon = INDUSTRY_ICONS[s.industry];
+  const synced = s.achroCallStatus !== "PENDING";
+
+  async function dispatch() {
+    setDispatching(true);
+    try {
+      const res = await dispatchToAchroCall(s.id);
+      onUpdated(res.signal);
+      toast({
+        title: res.mode === "live" ? "Dispatched to AchroCall" : "Dispatched to AchroCall (Sandbox Mode)",
+        description: res.message,
+        variant: "success",
+      });
+    } catch (e) {
+      toast({ title: "Dispatch failed", description: e instanceof Error ? e.message : "Unknown error", variant: "error" });
+    } finally {
+      setDispatching(false);
+    }
+  }
+
+  async function exportPayload() {
+    setExporting(true);
+    try {
+      const ok = await copyText(JSON.stringify(await exportProfile(s.id), null, 2));
+      toast(
+        ok
+          ? { title: "Apollo/Clay payload copied", description: `${s.companyName} enriched profile is on your clipboard.`, variant: "success" }
+          : { title: "Copy failed", description: "Clipboard access was blocked by the browser.", variant: "error" },
+      );
+    } catch (e) {
+      toast({ title: "Export failed", description: e instanceof Error ? e.message : "Unknown error", variant: "error" });
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  return (
+    <article className={cn("panel flex flex-col p-6 transition hover:shadow-card-hover", fresh && "animate-fresh border-emerald-300")}>
+      {/* Top: company, badges, AI fit */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h3 className="truncate text-lg font-semibold tracking-tight text-slate-900" title={s.companyName}>
+            {s.companyName}
+          </h3>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+              <IndustryIcon className="h-3.5 w-3.5 text-slate-400" aria-hidden />
+              {s.industry}
+            </span>
+            <span
+              title={SOURCE_LABELS[s.sourceChannel]}
+              className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" aria-hidden />
+              {PROVIDER_NAMES[s.sourceChannel]}
+            </span>
+            <span className={cn("rounded-full px-2.5 py-1 text-xs font-medium", URGENCY_STYLES[s.signalUrgency])}>
+              {s.signalUrgency[0] + s.signalUrgency.slice(1).toLowerCase()}
+            </span>
+          </div>
+        </div>
+        <ScoreRing score={s.aiOpportunityScore} />
+      </div>
+
+      {/* Middle: firmographics + signal context */}
+      <div className="mt-5">
+        <p className="text-sm font-medium text-slate-800">
+          {s.locationsCount} {s.locationsCount === 1 ? "location" : "locations"} • {s.revenueEstimate.replace(" ARR", "")} ARR
+        </p>
+        <p className="mt-3 text-xs font-medium text-indigo-600">
+          {SIGNAL_LABELS[s.signalType]} <span className="text-slate-300">·</span> <span className="font-normal text-slate-500">{timeAgo(s.detectedTimestamp, now)}</span>
+        </p>
+        <p className="mt-1 text-sm leading-relaxed text-slate-600">{s.signalDetail}</p>
+        <button
+          type="button"
+          onClick={() => onTelemetry(s)}
+          className="mt-3 inline-flex items-center gap-1.5 rounded-lg text-xs font-medium text-slate-500 transition hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+        >
+          <Radar className="h-3.5 w-3.5" aria-hidden />
+          View source telemetry
+        </button>
+      </div>
+
+      {/* Bottom: decision-maker snapshot */}
+      <div className="mt-5 flex items-center gap-3 rounded-2xl bg-slate-50 p-3.5">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-medium text-slate-600 shadow-sm ring-1 ring-slate-200/70" aria-hidden>
+          {initials(s.decisionMaker.name)}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-slate-900">
+            {s.decisionMaker.name} <span className="font-normal text-slate-400">•</span> <span className="font-normal text-slate-500">{s.decisionMaker.title}</span>
+          </p>
+          <p className="truncate text-xs text-slate-500">{s.decisionMaker.email}</p>
+          <p className="truncate text-xs text-slate-500">{s.contactPhone}</p>
+        </div>
+        <div className="flex shrink-0 items-center">
+          <IconCopy icon={Mail} value={s.decisionMaker.email} label="Email" />
+          <IconCopy icon={Phone} value={s.contactPhone} label="Phone number" />
+        </div>
+      </div>
+
+      {/* Footer: status + actions */}
+      <div className="mt-auto flex flex-col gap-4 pt-6">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          {s.achroCallStatus === "PENDING" && <span className="text-slate-500">Awaiting dispatch</span>}
+          {s.achroCallStatus !== "PENDING" && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200/70">
+              <Check className="h-3 w-3" aria-hidden />
+              Synced with AchroCall
+            </span>
+          )}
+          {s.achroCallStatus === "DISPATCHED_TO_ACHROCALL" && (
+            <span className="inline-flex items-center gap-1.5 font-medium text-amber-700" role="status">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
+              </span>
+              AI call in progress…
+            </span>
+          )}
+          {s.achroCallStatus === "CALL_COMPLETED" && s.callLog && (
+            <button
+              type="button"
+              onClick={() => onViewLog(s)}
+              className="inline-flex items-center gap-1.5 rounded-md font-medium text-indigo-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+            >
+              <ScrollText className="h-3.5 w-3.5" aria-hidden />
+              {s.callLog.outcome} · View voice log
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={dispatch} disabled={synced || dispatching} className={cn("btn", synced ? "btn-ghost" : "btn-primary")}>
+            {dispatching ? <Loader2 className="h-4 w-4 animate-spin" /> : synced ? <Check className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+            {synced ? "Dispatched" : "Dispatch to AchroCall"}
+          </button>
+          <button type="button" onClick={() => onPitch(s)} className="btn btn-ghost">
+            <Mic className="h-4 w-4" />
+            Trigger AI Pitch Demo
+          </button>
+          <button
+            type="button"
+            onClick={exportPayload}
+            disabled={exporting}
+            aria-label="Export Apollo/Clay payload"
+            title="Export Apollo/Clay payload"
+            className="btn btn-ghost ml-auto px-2.5"
+          >
+            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileJson className="h-4 w-4" />}
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+}

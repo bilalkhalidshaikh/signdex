@@ -1,0 +1,18 @@
+{
+  "name": "signdex-radar",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SignDex B2B AI Lead Signal Radar. The Next.js app lives in frontend/, the FastAPI API in backend/. These scripts forward to frontend/ so npm commands also work from the repo root.",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "setup": "npm --prefix frontend ci",
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "start": "npm --prefix frontend run start",
+    "lint": "npm --prefix frontend run lint",
+    "typecheck": "npm --prefix frontend run typecheck",
+    "verify": "npm --prefix frontend run verify"
+  }
+}

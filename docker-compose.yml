@@ -1,0 +1,16 @@
+# Optional: local PostgreSQL for the API.
+#   docker compose up -d
+#   DATABASE_URL=postgresql+asyncpg://radar:radar@localhost:5432/signal_radar
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: radar
+      POSTGRES_PASSWORD: radar
+      POSTGRES_DB: signal_radar
+    ports:
+      - "5432:5432"
+    volumes:
+      - radar_pg:/var/lib/postgresql/data
+volumes:
+  radar_pg:
