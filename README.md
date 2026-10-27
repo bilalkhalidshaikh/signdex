@@ -1,6 +1,6 @@
-# SignDex: B2B AI Lead Signal Radar — Autonomous Phone Automation Pipeline
+# SignDex: Lead Radar for AI Calling
 
-Live B2B buying-signal ingestion, synced with **AchroCall (achrocall.com)** for AI receptionist outreach.
+Find qualified B2B leads and queue AI outbound calls, synced with **AchroCall (achrocall.com)**.
 Replaces the legacy consumer-intent (plumbing/roofing) prototype.
 
 | Layer | Stack |
@@ -41,13 +41,13 @@ Notes: Node 20.9+ is required (`engines`). TypeScript is pinned to 6.x because `
 | Piece | Status |
 |---|---|
 | Signal feed | **Simulated.** `backend/app/generator.py` fabricates companies. Phones use the reserved `555-01XX` range and emails the `.example` TLD, so nothing can reach a real person. There are no live LinkedIn/Indeed scrapers yet. |
-| Source attribution | Every card shows `SOURCE: <channel>` (LinkedIn Recruiting, Indeed Job Board, Google Maps Multi-Branch Scan, Crunchbase Expansion API, Apollo Intent Feed), an intercept timestamp and matching telemetry. **Channels and telemetry are simulated** and cards are tagged `SANDBOX FEED`; no provider is actually queried. Pipeline Health shows each provider as sandbox-active with "Live API: awaiting client paid API key". |
-| Production paywall notice | Banner under the top bar + sidebar card open an enterprise notice explaining sandbox vs. production (live scraping clusters, paid B2B providers, proxy/credit fees). It states no prices. |
-| AchroCall dispatch | **Sandbox by default.** With `ACHROCALL_WEBHOOK_URL` empty the payload is built and recorded but *nothing is sent*; the UI toast says "sandbox mode". Set `ACHROCALL_WEBHOOK_URL` (+ `ACHROCALL_API_KEY`) to POST to AchroCall for real. The payload shape in `backend/app/achrocall.py` is **our guess** — align it with AchroCall's actual ingestion contract. |
-| Call completion | In sandbox, a dispatched lead shows "AI call in progress…" and flips to `CALL_COMPLETED` after 20–25 s with a simulated voice log (outcome, summary, 9-turn transcript) viewable from the card. Pending sandbox calls are resumed if the backend restarts mid-call. In live mode, AchroCall should POST to `/api/achrocall/callback`. |
-| "Live AI Pitch Demo" | **Scripted simulation** (tailored per lead), voiced with the browser's built-in speech synthesis (mute toggle in the modal; falls back to text-only if the browser has no voices). No Vapi call is placed. `VAPI_PUBLIC_KEY`/`VAPI_ASSISTANT_ID` are only reported as available; the real Vapi Web SDK is not wired in. |
-| "Stream Health" badge | Reflects the real SSE connection (green when connected, amber while reconnecting). |
-| Pipeline ARR metric | Score-weighted `locations × ACHROCALL_ARR_PER_LOCATION × score/100`. The $9,600/location default is a **placeholder assumption**, not AchroCall pricing. |
+| Lead sources | Every lead shows where it was found (LinkedIn job posts, Indeed job posts, Google Maps listings, Crunchbase company news, Apollo buyer interest), when, and what matched, in the **How we found this lead** window. **Sources and details are simulated**; no provider is actually queried. |
+| Demo-mode notice | A dismissible banner under the top bar and the sidebar's "What changes when live" entry open a plain-language comparison of demo vs. going live, explaining that live data and calls carry usage fees. It states no prices. |
+| AI call queue | **Demo by default.** With `ACHROCALL_WEBHOOK_URL` empty the call request is built and recorded but *nothing is sent*; the UI toast says "demo mode". Set `ACHROCALL_WEBHOOK_URL` (+ `ACHROCALL_API_KEY`) to POST to AchroCall for real. The payload shape in `backend/app/achrocall.py` is **our guess**: align it with AchroCall's actual ingestion contract. |
+| Call results | In demo mode, a queued lead shows "Call in progress…" and flips to called after 20–25 s with a simulated transcript (outcome, summary, 9-turn conversation) viewable from the lead. Pending demo calls are resumed if the backend restarts mid-call. In live mode, AchroCall should POST to `/api/achrocall/callback`. |
+| Preview AI Call | **Scripted simulation** (tailored per lead), voiced with the browser's built-in speech synthesis (mute toggle in the window; falls back to text-only if the browser has no voices). No Vapi call is placed. `VAPI_PUBLIC_KEY`/`VAPI_ASSISTANT_ID` are only reported as available; the real Vapi Web SDK is not wired in. |
+| Connection badge | Reflects the real live connection ("Demo mode · AI calling ready" when connected, "Reconnecting…" otherwise). |
+| Est. pipeline value | Fit-weighted `locations × ACHROCALL_ARR_PER_LOCATION × fit/100`. The $9,600/location default is a **placeholder assumption**, not AchroCall pricing. |
 | "Today" metrics | Rolling last 24 h. On startup, simulated data older than `RESEED_IF_STALE_HOURS` (6) is rebuilt so the dashboard is never empty on demo day. |
 
 ## API
@@ -55,7 +55,8 @@ Notes: Node 20.9+ is required (`engines`). TypeScript is pinned to 6.x because `
 | Method & path | Purpose |
 |---|---|
 | `GET /api/b2b-signals?signalType=&industry=&urgency=` | Filtered feed |
-| `POST /api/b2b-signals/simulate` | Generate, persist, and broadcast (SSE) a new signal |
+| `POST /api/b2b-signals/simulate` | Generate, persist and broadcast (SSE) `count` (1-5) signals. Body: `{ query?, industry?, state?, signalType?, count? }`. With a `query` such as "Roofing companies in FL" every generated lead matches it (industry, state, city, leftover words as company name); explicit fields override the query. Returns `{ signals, matched, note }` |
+| `GET /api/b2b-signals/parse?q=` | How a free-text search is understood: `{ industry, state, stateName, city, signalType, keywords, recognized }`. The dashboard filter and the simulator share this parser (`backend/app/queryparse.py`) |
 | `GET /api/b2b-signals/stream` | Server-Sent Events: `signal.created`, `signal.updated` |
 | `GET /api/b2b-signals/metrics` · `/analytics` | Executive bar + chart data |
 | `GET /api/b2b-signals/{id}/export` | Apollo/Clay-shaped enriched profile |
@@ -66,19 +67,29 @@ Notes: Node 20.9+ is required (`engines`). TypeScript is pinned to 6.x because `
 | `GET /api/config` | Read-only runtime config for System Settings (never returns secrets) |
 | `GET /api/b2b-signals/{id}/achrocall-payload` | Preview of the exact dispatch body (nothing is sent) |
 
-## Live Radar layout (light theme)
+## Search and simulate
 
-Three columns: left sidebar (sections, badge indicators, workspace widget), centre canvas, right rail.
+The search box understands plain English: an industry (roofing, HVAC, dental, legal, auto, property, plumbing/electrical), a US state by name or code (`Florida`, `FL`; a lowercase code is accepted after "in"), a city, a signal type (hiring, new location, multi-branch, automation) and any leftover words (matched against company/contact text). Chips under the box show what was understood. Simulating while a search is active generates 3 leads that match it; with no search it generates 1 random lead. If a search has no matches the feed shows an empty state offering to generate them. Industries: Healthcare & Dental, Legal Intake, Automotive Services, Property Management, Commercial HVAC, Roofing & Exteriors, Plumbing & Electrical.
 
-- **Header bar:** search (press `/` to focus), time-period picker (24 h / 7 d / 30 d), `Export` (downloads the current view as CSV), and `Simulate Real-Time Signal Ingestion`.
-- **KPI cards:** New signals, Avg intent score, High-fit B2B targets (score 80+), Est. pipeline ARR. The trend chips compare the latest quarter of the selected period with the quarter before it, computed from the feed, not invented percentages.
-- **Charts:** Signals by source (area), Signals captured (bar), Signal type distribution, Conversion readiness by industry; all follow the period picker.
-- **Hot leads table:** top leads by score (or newest) with source (click for the telemetry modal), stage (New / Qualified / Contacting / Demo booked / Follow-up) and quick actions.
-- **Right rail:** "Finish setting up" (progress is real: webhook set, callback secret, PostgreSQL, live voice keys), Pipeline summary (score-weighted ARR split by dispatch stage), Top signal sources, Follow-ups (derived from real leads; checkboxes are local to the browser), Recent activity.
+## Lead Radar layout (feed first)
+
+Lead Radar is deliberately minimal: a header bar, one slim title line, then the lead feed. Nothing else is in the page flow, on any screen size.
+
+- **Header bar:** search (press `/` to focus), time-period picker, **Reports** (opens the drawer), **Export Leads** (CSV of the current view) and **Find New Leads** (becomes **Find Leads for Search** while a search is active).
+- **Live Lead Feed:** **10 leads per page** with a `Load 10 more` / `Show fewer` control ("Showing 10 of 109"); a new search, period or filter returns to page one. Sort by newest or best fit. Desktop defaults to a dense **Table** with a **Cards** toggle; phones always get compact cards. Each lead offers **Dispatch Call**, **Preview AI Call**, **How we found this lead** and **Export lead to your CRM**.
+- **Reports drawer (closed by default):** New leads, Average fit score, High-fit leads, Est. pipeline value, Leads by source, Leads found, Why leads were flagged, Call readiness by industry, Get ready to go live, Pipeline summary, Top lead sources, Follow-ups today and Recent activity. It costs no page space until opened.
+- Phone cards are compact and the page never scrolls horizontally (checked at 320, 360 and 390 px). Controls are at least 44 px tall.
 - Fonts: Inter if installed, otherwise the system sans-serif stack (no web-font download, so the build works offline).
+- The empty state reads "0 leads match your search. Click 'Find Leads for Search' to instantly generate target leads for <query>."
 
-## Dashboard tabs
+## Navigation
 
-`Live Radar` (feed, metrics, pipeline health, analytics) · `Campaign Swarms` (per-industry bulk dispatch) · `Webhook Routing` (AchroCall endpoint state + payload preview) · `CRM Sync` (Apollo/Clay payload export) · `Voice Core (AchroCall)` (call queue + voice logs) · `System Settings` (read-only config). A "Recent activity" card in the Live Radar side rail shows the latest ingestion/dispatch/call events from the SSE feed. The sandbox notice is a dismissible banner at the top (dismissal lasts the browser session; the sidebar's "Sandbox environment" entry reopens the full notice).
+From 1024 px up, a persistent left sidebar lists every page (Lead Radar, Campaigns, Call Routing, CRM Export, AI Calling System, Settings). Below 1024 px the sidebar is replaced by a slim top bar with a hamburger that opens the same menu as a slide-out drawer: tap a link to navigate and close, or close with the X, an overlay tap or Esc; focus is trapped while open and returns to the hamburger, and page scroll is locked behind it.
+
+## Pages
+
+`Lead Radar` (feed and reports) · `Campaigns` (per-industry bulk calling) · `Call Routing` (calling-system connection and a call-details preview, with the raw payload behind "Show technical details") · `CRM Export` (Apollo/Clay-shaped export) · `AI Calling System` (Outbound Call Queue and call transcripts) · `Settings` (read-only workspace setup). "Recent activity" in the Reports drawer shows the latest lead and call events from the live feed. The demo-mode banner is dismissible (for the browser session) and the sidebar's "What changes when live" entry reopens the full comparison.
+
+Copy note: the UI uses plain business wording. API field and enum names (`aiOpportunityScore`, `sourceChannel`, `CALL_COMPLETED`, `/api/b2b-signals/*`) are unchanged.
 
 The legacy Express/Vite/Replit project was removed; a copy was saved outside the repo before deletion.

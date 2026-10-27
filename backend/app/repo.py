@@ -49,6 +49,8 @@ def to_row(s: B2BSignal) -> SignalRow:
         call_log=s.call_log.model_dump(mode="json") if s.call_log else None,
         source_channel=s.source_channel.value,
         source_telemetry=[t.model_dump() for t in s.source_telemetry],
+        state=s.state,
+        city=s.city,
     )
 
 
@@ -74,6 +76,8 @@ def to_model(r: SignalRow) -> B2BSignal:
         # Rows created before channel attribution existed get a deterministic fallback.
         source_channel=SourceChannel(r.source_channel) if r.source_channel else default_channel(SignalType(r.signal_type)),
         source_telemetry=[TelemetryItem.model_validate(t) for t in (r.source_telemetry or [])],
+        state=r.state,
+        city=r.city,
     )
 
 

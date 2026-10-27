@@ -19,6 +19,7 @@ from .models import (
     SourceChannel,
     TelemetryItem,
 )
+from .geo import POPULAR_STATES, US_STATES
 from .scoring import revenue_for, score_signal, urgency_for
 
 PREFIXES = [
@@ -59,6 +60,18 @@ INDUSTRY_PROFILE: dict[Industry, dict] = {
         "locations": (1, 6),
         "caller_term": "service customers",
     },
+    Industry.ROOFING: {
+        "suffixes": ["Roofing", "Roofing & Exteriors", "Roofing Co.", "Roof Systems", "Roofing Contractors"],
+        "titles": ["Owner & Operator", "Operations Manager", "Office Manager"],
+        "locations": (1, 5),
+        "caller_term": "homeowners",
+    },
+    Industry.PLUMBING_ELECTRICAL: {
+        "suffixes": ["Plumbing & Electric", "Plumbing Services", "Electrical Contractors", "Plumbing & Drain"],
+        "titles": ["Owner", "Dispatch Manager", "Operations Director"],
+        "locations": (1, 6),
+        "caller_term": "service customers",
+    },
 }
 
 FIRST_NAMES = [
@@ -70,29 +83,24 @@ LAST_NAMES = [
     "Delgado", "Lindqvist", "Abara", "Moretti", "Fischer", "Quinn", "Bergstrom", "Salazar", "Hughes",
 ]
 
-AREA_CODES = ["212", "305", "312", "404", "415", "512", "617", "646", "702", "713", "737", "786", "917"]
-
 DETAILS: dict[SignalType, list[str]] = {
     SignalType.RECEPTIONIST_HIRING_SPIKE: [
-        "{n} front-desk / intake listings posted within the last {d} days",
-        "Open requisitions for {n} receptionist roles across {loc} branches in the past {d} days",
+        "Hiring {n} front-desk or intake staff. Posted in the last {d} days.",
+        "Hiring {n} receptionists across {loc} locations in the last {d} days.",
     ],
     SignalType.NEW_LOCATION_OPENED: [
-        "New branch opened {d} days ago - now {loc} locations with no dedicated front-desk line",
-        "Grand opening detected {d} days ago; location count grew to {loc}",
+        "Opened a new location {d} days ago. Now {loc} locations, none with its own front-desk line.",
+        "Grand opening {d} days ago. Now {loc} locations.",
     ],
     SignalType.SINGLE_PHONE_MULTI_BRANCH: [
-        "{loc} branch addresses all route through one published front-desk number",
-        "Website lists {loc} locations but a single shared phone line for appointments and intake",
+        "All {loc} locations share one front-desk phone number.",
+        "Website lists {loc} locations but only one shared phone line for appointments.",
     ],
     SignalType.AUTOMATION_ADOPTION_INTENT: [
-        "Tech-stack change: CRM and chat-widget tooling added in the last {d} days",
-        "Pricing-page visits and AI-tool evaluations detected from the company's domain ({d}-day window)",
+        "Recently added new CRM and chat tools (last {d} days).",
+        "Staff have been researching AI and automation tools (last {d} days).",
     ],
 }
-
-
-STATES = ["TX", "FL", "NY", "CA", "IL", "GA", "MA", "NV", "AZ", "NC"]
 
 CHANNELS_BY_SIGNAL: dict[SignalType, list[SourceChannel]] = {
     SignalType.RECEPTIONIST_HIRING_SPIKE: [SourceChannel.LINKEDIN_RECRUITING, SourceChannel.INDEED_JOB_BOARD],
@@ -106,45 +114,45 @@ def default_channel(signal_type: SignalType) -> SourceChannel:
     return CHANNELS_BY_SIGNAL[signal_type][0]
 
 
-def build_telemetry(channel: SourceChannel, locations: int, rng: random.Random) -> list[TelemetryItem]:
-    """Matching evidence as the source channel would report it (sandbox values)."""
-    confidence = f"{rng.randint(88, 99)}%"
-    region = f"US-{rng.choice(STATES)}"
+def build_telemetry(channel: SourceChannel, locations: int, state: str, rng: random.Random) -> list[TelemetryItem]:
+    """Plain-language details of how the lead was found (demo values)."""
+    strength = f"{rng.randint(88, 99)}%"
+    region = US_STATES[state][0]
     items: list[tuple[str, str]]
     if channel == SourceChannel.LINKEDIN_RECRUITING:
         items = [
-            ("Query", "front desk OR intake coordinator OR receptionist"),
-            ("Postings matched", f"{rng.randint(2, 5)} in {rng.randint(2, 7)}d"),
-            ("Match confidence", confidence),
-            ("Scan region", region),
+            ("Search used", "Front desk, receptionist or intake roles"),
+            ("Job posts found", f"{rng.randint(2, 5)} in the last {rng.randint(2, 7)} days"),
+            ("Match strength", strength),
+            ("Region", region),
         ]
     elif channel == SourceChannel.INDEED_JOB_BOARD:
         items = [
-            ("Query", "receptionist OR patient/client coordinator"),
-            ("Active listings", str(rng.randint(2, 5))),
-            ("Match confidence", confidence),
-            ("Scan region", region),
+            ("Search used", "Receptionist or patient/client coordinator roles"),
+            ("Open job posts", str(rng.randint(2, 5))),
+            ("Match strength", strength),
+            ("Region", region),
         ]
     elif channel == SourceChannel.GOOGLE_MAPS_MULTI_BRANCH_SCAN:
         items = [
-            ("Branches clustered", str(locations)),
+            ("Locations found", str(locations)),
             ("Shared phone lines", "1"),
-            ("Match confidence", confidence),
-            ("Geo cluster", region),
+            ("Match strength", strength),
+            ("Region", region),
         ]
     elif channel == SourceChannel.CRUNCHBASE_EXPANSION_API:
         items = [
-            ("Event", rng.choice(["New facility opened", "Expansion round announced", "Multi-site rollout"])),
-            ("Locations after event", str(locations)),
-            ("Match confidence", confidence),
-            ("HQ region", region),
+            ("What happened", rng.choice(["Opened a new facility", "Announced expansion funding", "Rolled out multiple new sites"])),
+            ("Locations now", str(locations)),
+            ("Match strength", strength),
+            ("Region", region),
         ]
     else:
         items = [
-            ("Intent topic", "AI receptionist / call automation"),
-            ("Intent surge", f"+{rng.randint(35, 140)}% vs 30d baseline"),
-            ("Match confidence", confidence),
-            ("Account region", region),
+            ("Topic", "AI receptionists and call automation"),
+            ("Interest vs. usual", f"{rng.randint(35, 140)}% higher than normal"),
+            ("Match strength", strength),
+            ("Region", region),
         ]
     return [TelemetryItem(label=k, value=v) for k, v in items]
 
@@ -153,8 +161,8 @@ def _slug(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", name.lower())
 
 
-def _phone(rng: random.Random) -> str:
-    return f"+1 ({rng.choice(AREA_CODES)}) 555-01{rng.randint(0, 99):02d}"
+def _phone(state: str, rng: random.Random) -> str:
+    return f"+1 ({US_STATES[state][2]}) 555-01{rng.randint(0, 99):02d}"
 
 
 def generate_signal(
@@ -163,6 +171,9 @@ def generate_signal(
     industry: Industry | None = None,
     signal_type: SignalType | None = None,
     channel: SourceChannel | None = None,
+    state: str | None = None,
+    city: str | None = None,
+    name_hint: str | None = None,
     detected_at: datetime | None = None,
     rng: random.Random | None = None,
 ) -> B2BSignal:
@@ -172,10 +183,14 @@ def generate_signal(
     industry = industry or rng.choice(list(Industry))
     profile = INDUSTRY_PROFILE[industry]
     signal_type = signal_type or rng.choice(list(SignalType))
+    state = state if state in US_STATES else rng.choice(POPULAR_STATES)
+    cities = US_STATES[state][1]
+    city = city if city in cities else rng.choice(cities)
 
     company = ""
     for _ in range(25):
-        company = f"{rng.choice(PREFIXES)} {rng.choice(profile['suffixes'])}"
+        lead = name_hint.title() if name_hint else rng.choice(PREFIXES)
+        company = f"{lead} {rng.choice(profile['suffixes'])}"
         if company not in existing_names:
             break
 
@@ -200,7 +215,7 @@ def generate_signal(
         locations_count=locations,
         signal_type=signal_type,
         signal_urgency=urgency_for(score),
-        contact_phone=_phone(rng),
+        contact_phone=_phone(state, rng),
         decision_maker=DecisionMaker(
             name=f"{first} {last}",
             title=rng.choice(profile["titles"]),
@@ -213,8 +228,43 @@ def generate_signal(
         signal_detail=detail,
         source="simulated",
         source_channel=channel,
-        source_telemetry=build_telemetry(channel, locations, rng),
+        source_telemetry=build_telemetry(channel, locations, state, rng),
+        state=state,
+        city=city,
     )
+
+
+def generate_batch(
+    count: int,
+    existing_names: set[str],
+    *,
+    industry: Industry | None = None,
+    state: str | None = None,
+    signal_type: SignalType | None = None,
+    city: str | None = None,
+    name_hint: str | None = None,
+) -> list[B2BSignal]:
+    """`count` signals that all honour the given filters. Unspecified fields vary across the batch
+    (different cities within the state, different industries/types) so the results look like a real scan."""
+    rng = random.Random()
+    names = set(existing_names)
+    cities = list(US_STATES[state][1]) if state in US_STATES else []
+    rng.shuffle(cities)
+    out: list[B2BSignal] = []
+    for i in range(count):
+        s = generate_signal(
+            names,
+            industry=industry,
+            signal_type=signal_type,
+            state=state,
+            city=city or (cities[i % len(cities)] if cities else None),
+            name_hint=name_hint,
+            detected_at=datetime.now(timezone.utc) - timedelta(seconds=i),
+            rng=rng,
+        )
+        names.add(s.company_name)
+        out.append(s)
+    return out
 
 
 def generate_seed(count: int) -> list[B2BSignal]:

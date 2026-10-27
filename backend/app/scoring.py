@@ -16,6 +16,8 @@ INDUSTRY_FIT: dict[Industry, int] = {
     Industry.PROPERTY_MANAGEMENT: 4,
     Industry.AUTOMOTIVE: 3,
     Industry.COMMERCIAL_HVAC: 2,
+    Industry.ROOFING: 3,
+    Industry.PLUMBING_ELECTRICAL: 3,
 }
 
 

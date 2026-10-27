@@ -14,9 +14,11 @@ import { VoiceView } from "@/components/views/voice-view";
 import { WebhookView } from "@/components/views/webhook-view";
 import { VoiceModal } from "@/components/voice-modal";
 import { useNow } from "@/hooks/use-now";
+import { useParsedQuery } from "@/hooks/use-parsed-query";
 import { useSignalFeed } from "@/hooks/use-signal-feed";
-import { inRange, matchesQuery, type Range } from "@/lib/analytics";
-import { simulateSignal } from "@/lib/api";
+import { inRange, type Range } from "@/lib/analytics";
+import { simulateSignals } from "@/lib/api";
+import { describeParsed, matchesFilters, matchesSearch } from "@/lib/search";
 import { toast } from "@/lib/toast";
 import { SIGNAL_LABELS, SOURCE_LABELS, type B2BSignal, type Filters } from "@/lib/types";
 
@@ -34,12 +36,13 @@ export default function Page() {
   const [simulating, setSimulating] = useState(false);
   const feed = useSignalFeed(filters);
   const now = useNow(30_000);
+  const { parsed } = useParsedQuery(query);
 
   // Period only (drives KPIs, charts, rail) vs period + filters + search (drives the table and feed).
   const rangeSignals = useMemo(() => inRange(feed.allSignals, range, now), [feed.allSignals, range, now]);
   const visible = useMemo(
-    () => inRange(feed.signals, range, now).filter((s) => matchesQuery(s, query)),
-    [feed.signals, range, now, query],
+    () => inRange(feed.signals, range, now).filter((s) => matchesSearch(s, query, parsed)),
+    [feed.signals, range, now, query, parsed],
   );
 
   const badges = useMemo(() => {
@@ -53,25 +56,42 @@ export default function Page() {
     };
   }, [feed.allSignals, now]);
 
+  /** Finds leads that match the active search ("Roofing companies in FL" -> roofing leads in Florida). */
   async function simulate() {
+    const q = query.trim();
     setSimulating(true);
     try {
-      const s = await simulateSignal();
-      feed.applySignal(s, { fresh: true });
-      toast({
-        title: `New signal: ${s.companyName}`,
-        description: `${SIGNAL_LABELS[s.signalType]} • ${s.signalUrgency} • ${SOURCE_LABELS[s.sourceChannel]} • AI fit ${s.aiOpportunityScore}`,
-        variant: "signal",
-      });
+      const res = await simulateSignals({ query: q || undefined, count: q ? 3 : 1 });
+      res.signals.forEach((s) => feed.applySignal(s, { fresh: true }));
+
+      // If the dropdown filters would hide every new lead, clear them so the result is actually visible.
+      const hiddenByFilters = res.signals.every((s) => !matchesFilters(s, filters));
+      if (hiddenByFilters) setFilters(DEFAULT_FILTERS);
+
+      if (q) {
+        const what = describeParsed(res.matched).join(" · ");
+        toast({
+          title: `Found ${res.signals.length} leads for “${q}”`,
+          description: [what, res.note, hiddenByFilters ? "Your filters were cleared so the new leads show." : null].filter(Boolean).join(". "),
+          variant: "signal",
+        });
+      } else {
+        const s = res.signals[0];
+        toast({
+          title: `New lead: ${s.companyName}`,
+          description: `${SIGNAL_LABELS[s.signalType]} · found on ${SOURCE_LABELS[s.sourceChannel]} · fit score ${s.aiOpportunityScore}`,
+          variant: "signal",
+        });
+      }
     } catch (e) {
-      toast({ title: "Simulation failed", description: e instanceof Error ? e.message : "Unknown error", variant: "error" });
+      toast({ title: "Couldn't find leads", description: e instanceof Error ? e.message : "Please try again.", variant: "error" });
     } finally {
       setSimulating(false);
     }
   }
 
   function startPitch(s: B2BSignal) {
-    feed.pushEvent("VAPI", `Demo pitch session started: ${s.decisionMaker.name} @ ${s.companyName}`);
+    feed.pushEvent("VAPI", `Sample call played: ${s.decisionMaker.name} at ${s.companyName}`);
     setPitchSignal(s);
   }
 
@@ -96,6 +116,7 @@ export default function Page() {
             onRange={setRange}
             query={query}
             onQuery={setQuery}
+            parsed={parsed}
             rangeSignals={rangeSignals}
             visible={visible}
             now={now}

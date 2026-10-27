@@ -1,5 +1,5 @@
 import type { B2BSignal, Industry, SignalType, SourceChannel } from "./types";
-import { INDUSTRIES, SIGNAL_TYPES } from "./types";
+import { CALL_STATUS_LABELS, INDUSTRIES, SIGNAL_LABELS, SIGNAL_TYPES, SOURCE_LABELS } from "./types";
 
 export type Range = "24h" | "7d" | "30d";
 
@@ -14,15 +14,6 @@ const ts = (s: B2BSignal) => new Date(s.detectedTimestamp).getTime();
 export function inRange(signals: B2BSignal[], range: Range, now: number): B2BSignal[] {
   const ms = RANGES.find((r) => r.value === range)!.ms;
   return signals.filter((s) => now - ts(s) <= ms);
-}
-
-export function matchesQuery(s: B2BSignal, q: string): boolean {
-  const needle = q.trim().toLowerCase();
-  if (!needle) return true;
-  return [s.companyName, s.industry, s.decisionMaker.name, s.decisionMaker.title, s.sourceChannel.replaceAll("_", " "), s.signalType.replaceAll("_", " ")]
-    .join(" ")
-    .toLowerCase()
-    .includes(needle);
 }
 
 /** Latest quarter of the range vs the quarter before it: an honest "trend" from the data we actually have. */
@@ -49,9 +40,9 @@ export const GROUP_OF: Record<SourceChannel, SourceGroup> = {
   APOLLO_INTENT_FEED: "intent",
 };
 export const GROUP_LABEL: Record<SourceGroup, string> = {
-  hiring: "Hiring boards (LinkedIn, Indeed)",
-  footprint: "Footprint (Google Maps, Crunchbase)",
-  intent: "Intent data (Apollo)",
+  hiring: "Job posts (LinkedIn, Indeed)",
+  footprint: "Locations & growth (Google Maps, Crunchbase)",
+  intent: "Buyer interest (Apollo)",
 };
 export const GROUP_COLOR: Record<SourceGroup, string> = {
   hiring: "#4F46E5",
@@ -110,33 +101,34 @@ export function readinessByIndustry(signals: B2BSignal[]): { industry: Industry;
 }
 
 // --- Lead stage ----------------------------------------------------------
-export type Stage = "New" | "Qualified" | "Contacting" | "Demo booked" | "Follow-up";
+export type Stage = "New" | "Qualified" | "Calling" | "Demo booked" | "Follow up";
 
 export function stageFor(s: B2BSignal): Stage {
-  if (s.achroCallStatus === "CALL_COMPLETED") return s.callLog?.outcome === "Demo Booked" ? "Demo booked" : "Follow-up";
-  if (s.achroCallStatus === "DISPATCHED_TO_ACHROCALL") return "Contacting";
+  if (s.achroCallStatus === "CALL_COMPLETED") return s.callLog?.outcome === "Demo Booked" ? "Demo booked" : "Follow up";
+  if (s.achroCallStatus === "DISPATCHED_TO_ACHROCALL") return "Calling";
   return s.aiOpportunityScore >= 80 ? "Qualified" : "New";
 }
 
 export const STAGE_STYLES: Record<Stage, string> = {
   New: "bg-slate-100 text-slate-600",
   Qualified: "bg-emerald-50 text-emerald-700",
-  Contacting: "bg-amber-50 text-amber-700",
+  Calling: "bg-amber-50 text-amber-700",
   "Demo booked": "bg-indigo-50 text-indigo-700",
-  "Follow-up": "bg-sky-50 text-sky-700",
+  "Follow up": "bg-sky-50 text-sky-700",
 };
 
 // --- CSV export -----------------------------------------------------------
 export function signalsToCsv(signals: B2BSignal[]): string {
   const cols = [
-    "company", "industry", "source_channel", "signal_type", "urgency", "ai_score", "locations", "revenue_estimate",
-    "contact_name", "contact_title", "contact_email", "contact_phone", "achrocall_status", "detected_at",
+    "Company", "Industry", "City", "State", "Found on", "Why it's a lead", "Priority", "Fit score", "Locations", "Est. revenue",
+    "Contact", "Title", "Email", "Phone", "Call status", "Found at",
   ];
   const esc = (v: string | number) => `"${String(v).replaceAll('"', '""')}"`;
   const rows = signals.map((s) =>
     [
-      s.companyName, s.industry, s.sourceChannel, s.signalType, s.signalUrgency, s.aiOpportunityScore, s.locationsCount, s.revenueEstimate,
-      s.decisionMaker.name, s.decisionMaker.title, s.decisionMaker.email, s.contactPhone, s.achroCallStatus, s.detectedTimestamp,
+      s.companyName, s.industry, s.city ?? "", s.state ?? "", SOURCE_LABELS[s.sourceChannel], SIGNAL_LABELS[s.signalType],
+      s.signalUrgency[0] + s.signalUrgency.slice(1).toLowerCase(), s.aiOpportunityScore, s.locationsCount, s.revenueEstimate,
+      s.decisionMaker.name, s.decisionMaker.title, s.decisionMaker.email, s.contactPhone, CALL_STATUS_LABELS[s.achroCallStatus], s.detectedTimestamp,
     ]
       .map(esc)
       .join(","),

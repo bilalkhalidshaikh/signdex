@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS b2b_signals (
     company_name         VARCHAR(200) NOT NULL,
     industry             VARCHAR(64)  NOT NULL CHECK (industry IN (
         'Healthcare & Dental', 'Legal Intake', 'Automotive Services',
-        'Property Management', 'Commercial HVAC')),
+        'Property Management', 'Commercial HVAC', 'Roofing & Exteriors', 'Plumbing & Electrical')),
     locations_count      INTEGER      NOT NULL CHECK (locations_count >= 1),
     signal_type          VARCHAR(48)  NOT NULL CHECK (signal_type IN (
         'RECEPTIONIST_HIRING_SPIKE', 'NEW_LOCATION_OPENED',
@@ -26,7 +26,9 @@ CREATE TABLE IF NOT EXISTS b2b_signals (
     dispatched_at        TIMESTAMPTZ,
     call_log             JSON,  -- { outcome, summary, durationSeconds, transcript[], completedAt }
     source_channel       VARCHAR(48),  -- LINKEDIN_RECRUITING | INDEED_JOB_BOARD | GOOGLE_MAPS_MULTI_BRANCH_SCAN | CRUNCHBASE_EXPANSION_API | APOLLO_INTENT_FEED
-    source_telemetry     JSON   -- [{ label, value }] matching evidence from the source channel
+    source_telemetry     JSON,  -- [{ label, value }] matching evidence from the source channel
+    state                VARCHAR(2),   -- US state code
+    city                 VARCHAR(64)
 );
 
 CREATE INDEX IF NOT EXISTS ix_b2b_signals_detected ON b2b_signals (detected_timestamp DESC);

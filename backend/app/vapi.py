@@ -15,6 +15,7 @@ OBJECTIONS = {
     "customers": "We've tried phone menus before and customers hated them.",
     "residents": "Residents call about urgent maintenance. I can't have those calls dropped.",
     "service customers": "Dispatch calls are urgent. I can't have a bot fumbling an emergency call.",
+    "homeowners": "Homeowners call after storms and they want a real person. I can't risk a robot handling that.",
 }
 
 
@@ -47,14 +48,14 @@ def build_sandbox_call_log(s: B2BSignal) -> CallLog:
     booked = random.random() < 0.65
     outcome = "Demo Booked" if booked else "Follow-up Requested"
     result = (
-        f"{first} agreed to a 15-minute walkthrough; scheduling options were emailed to {s.decision_maker.email}."
+        f"{first} agreed to a 15-minute walkthrough, and scheduling options were emailed to {s.decision_maker.email}."
         if booked
-        else f"{first} asked for details by email; a follow-up call is queued."
+        else f"{first} asked for details by email, and a follow-up call is queued."
     )
     return CallLog(
         outcome=outcome,
-        summary=f"Ava reached {s.decision_maker.name} ({s.decision_maker.title}) at {s.company_name} "
-        f"and pitched an AI receptionist around: {s.signal_detail}. {result}",
+        summary=f"Ava spoke with {s.decision_maker.name} ({s.decision_maker.title}) at {s.company_name} "
+        f"about handling their calls with an AI receptionist. Why we called: {s.signal_detail} {result}",
         duration_seconds=random.randint(52, 118),
         transcript=[CallLogTurn(speaker=t.speaker, text=t.text) for t in turns],
         completed_at=datetime.now(timezone.utc),
@@ -111,5 +112,5 @@ def build_pitch(s: B2BSignal) -> VapiSession:
         contact_title=s.decision_maker.title,
         turns=turns,
         live_config_available=settings.vapi_live_configured,
-        note="Simulated WebRTC session. No real call is placed and no audio is transmitted.",
+        note="Demo call. No real call is placed.",
     )

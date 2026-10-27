@@ -36,11 +36,11 @@ interface Props {
 export function SourceTrendChart({ signals, range, now }: Props) {
   const data = useMemo(() => bucketSeries(signals, range, now), [signals, range, now]);
   return (
-    <section className="panel p-6" aria-label="Signals by source">
+    <section className="panel p-6" aria-label="Leads by source">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold tracking-tight text-slate-900">Signals by source</h2>
-          <p className="mt-1 text-sm text-slate-500">{signals.length} signals across all channels in this period</p>
+          <h2 className="text-base font-semibold tracking-tight text-slate-900">Leads by source</h2>
+          <p className="mt-1 text-sm text-slate-500">{signals.length} leads from all sources in this period</p>
         </div>
         <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
           {GROUPS.map((g) => (
@@ -89,8 +89,8 @@ export function SourceTrendChart({ signals, range, now }: Props) {
 export function CapturedBarChart({ signals, range, now }: Props) {
   const data = useMemo(() => bucketSeries(signals, range, now), [signals, range, now]);
   return (
-    <section className="panel p-6" aria-label="Signals captured">
-      <h2 className="text-base font-semibold tracking-tight text-slate-900">Signals captured</h2>
+    <section className="panel p-6" aria-label="Leads found">
+      <h2 className="text-base font-semibold tracking-tight text-slate-900">Leads found</h2>
       <p className="mt-3 text-3xl font-semibold tabular-nums tracking-tight text-slate-900">{signals.length}</p>
       <div className="mt-3 h-44 w-full">
         <ResponsiveContainer width="100%" height="100%" minWidth={0}>
@@ -98,7 +98,7 @@ export function CapturedBarChart({ signals, range, now }: Props) {
             <XAxis dataKey="label" tick={axisTick} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={28} />
             <YAxis allowDecimals={false} tick={axisTick} axisLine={false} tickLine={false} width={40} />
             <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(99,102,241,0.06)" }} />
-            <Bar dataKey="total" name="Signals" radius={[4, 4, 0, 0]}>
+            <Bar dataKey="total" name="Leads" radius={[4, 4, 0, 0]}>
               {data.map((d, i) => (
                 <Cell key={i} fill={i === data.length - 1 ? "#4F46E5" : "#e2e8f0"} />
               ))}
@@ -113,9 +113,9 @@ export function CapturedBarChart({ signals, range, now }: Props) {
 export function TypeDonut({ signals }: { signals: B2BSignal[] }) {
   const dist = typeDistribution(signals).map((d, i) => ({ name: SIGNAL_LABELS[d.type], value: d.count, color: TYPE_COLORS[i % TYPE_COLORS.length] }));
   return (
-    <section className="panel p-6" aria-label="Signal type distribution">
-      <h2 className="text-base font-semibold tracking-tight text-slate-900">Signal type distribution</h2>
-      <p className="mt-1 text-sm text-slate-500">{signals.length} signals by trigger</p>
+    <section className="panel p-6" aria-label="Why leads were flagged">
+      <h2 className="text-base font-semibold tracking-tight text-slate-900">Why leads were flagged</h2>
+      <p className="mt-1 text-sm text-slate-500">{signals.length} leads, grouped by what flagged them</p>
       <div className="mt-4 flex flex-col items-center gap-5 sm:flex-row">
         <div className="h-40 w-40 shrink-0">
           <ResponsiveContainer width="100%" height="100%" minWidth={0}>
@@ -146,9 +146,9 @@ export function TypeDonut({ signals }: { signals: B2BSignal[] }) {
 export function ReadinessChart({ signals }: { signals: B2BSignal[] }) {
   const data = readinessByIndustry(signals).map((r) => ({ industry: r.industry, score: r.score, signals: r.signals, ready: r.ready }));
   return (
-    <section className="panel p-6" aria-label="Conversion readiness by industry">
-      <h2 className="text-base font-semibold tracking-tight text-slate-900">AchroCall conversion readiness by industry</h2>
-      <p className="mt-1 text-sm text-slate-500">Average AI opportunity score (0–100)</p>
+    <section className="panel p-6" aria-label="Call readiness by industry">
+      <h2 className="text-base font-semibold tracking-tight text-slate-900">Call readiness by industry</h2>
+      <p className="mt-1 text-sm text-slate-500">Average fit score (0–100). Higher means a better match for AI calling.</p>
       <div className="mt-4 h-56 w-full">
         <ResponsiveContainer width="100%" height="100%" minWidth={0}>
           <BarChart data={data} layout="vertical" margin={{ left: 8, right: 24, top: 4, bottom: 4 }}>
@@ -157,7 +157,7 @@ export function ReadinessChart({ signals }: { signals: B2BSignal[] }) {
             <Tooltip
               cursor={{ fill: "rgba(99,102,241,0.06)" }}
               contentStyle={tooltipStyle}
-              formatter={(value, _n, item) => [`${value} avg · ${item.payload.ready}/${item.payload.signals} ready (80+)`, "Readiness"]}
+              formatter={(value, _n, item) => [`${value} average · ${item.payload.ready} of ${item.payload.signals} leads are high-fit (80+)`, "Fit score"]}
             />
             <Bar dataKey="score" radius={[0, 6, 6, 0]} fill="#6366F1" barSize={16} />
           </BarChart>

@@ -3,7 +3,9 @@ export type Industry =
   | "Legal Intake"
   | "Automotive Services"
   | "Property Management"
-  | "Commercial HVAC";
+  | "Commercial HVAC"
+  | "Roofing & Exteriors"
+  | "Plumbing & Electrical";
 
 export type SignalType =
   | "RECEPTIONIST_HIRING_SPIKE"
@@ -37,11 +39,11 @@ export const SOURCE_CHANNELS: SourceChannel[] = [
 ];
 
 export const SOURCE_LABELS: Record<SourceChannel, string> = {
-  LINKEDIN_RECRUITING: "LINKEDIN RECRUITING",
-  INDEED_JOB_BOARD: "INDEED JOB BOARD",
-  GOOGLE_MAPS_MULTI_BRANCH_SCAN: "GOOGLE MAPS MULTI-BRANCH SCAN",
-  CRUNCHBASE_EXPANSION_API: "CRUNCHBASE EXPANSION API",
-  APOLLO_INTENT_FEED: "APOLLO INTENT FEED",
+  LINKEDIN_RECRUITING: "LinkedIn job posts",
+  INDEED_JOB_BOARD: "Indeed job posts",
+  GOOGLE_MAPS_MULTI_BRANCH_SCAN: "Google Maps listings",
+  CRUNCHBASE_EXPANSION_API: "Crunchbase company news",
+  APOLLO_INTENT_FEED: "Apollo buyer interest",
 };
 
 export const PROVIDER_NAMES: Record<SourceChannel, string> = {
@@ -107,6 +109,26 @@ export interface B2BSignal {
   callLog: CallLog | null;
   sourceChannel: SourceChannel;
   sourceTelemetry: TelemetryItem[];
+  state: string | null;
+  city: string | null;
+}
+
+/** Server-side reading of a free-text search ("Roofing companies in FL"). */
+export interface ParsedQuery {
+  query: string;
+  industry: Industry | null;
+  state: string | null;
+  stateName: string | null;
+  city: string | null;
+  signalType: SignalType | null;
+  keywords: string[];
+  recognized: boolean;
+}
+
+export interface SimulateResponse {
+  signals: B2BSignal[];
+  matched: ParsedQuery;
+  note: string | null;
 }
 
 export interface Metrics {
@@ -160,6 +182,8 @@ export const INDUSTRIES: Industry[] = [
   "Automotive Services",
   "Property Management",
   "Commercial HVAC",
+  "Roofing & Exteriors",
+  "Plumbing & Electrical",
 ];
 
 export const SIGNAL_TYPES: SignalType[] = [
@@ -170,10 +194,35 @@ export const SIGNAL_TYPES: SignalType[] = [
 ];
 
 export const SIGNAL_LABELS: Record<SignalType, string> = {
-  RECEPTIONIST_HIRING_SPIKE: "Receptionist Hiring Spike",
-  NEW_LOCATION_OPENED: "New Location Opened",
-  SINGLE_PHONE_MULTI_BRANCH: "Single Phone, Multi-Branch",
-  AUTOMATION_ADOPTION_INTENT: "Automation Adoption Intent",
+  RECEPTIONIST_HIRING_SPIKE: "Hiring receptionists",
+  NEW_LOCATION_OPENED: "Opened a new location",
+  SINGLE_PHONE_MULTI_BRANCH: "One phone line, many locations",
+  AUTOMATION_ADOPTION_INTENT: "Researching automation tools",
+};
+
+/** Plain-language call status shown on cards, tables and reports. */
+export const CALL_STATUS_LABELS: Record<AchroCallStatus, string> = {
+  PENDING: "Not called yet",
+  DISPATCHED_TO_ACHROCALL: "In call queue",
+  CALL_COMPLETED: "Called",
+};
+
+/** Friendlier names for the detail rows the backend attaches to each lead (older leads used the technical names). */
+export const SOURCE_DETAIL_LABELS: Record<string, string> = {
+  Query: "Search used",
+  "Postings matched": "Job posts found",
+  "Active listings": "Open job posts",
+  "Match confidence": "Match strength",
+  "Scan region": "Region",
+  "Branches clustered": "Locations found",
+  "Shared phone lines": "Shared phone lines",
+  "Geo cluster": "Region",
+  Event: "What happened",
+  "Locations after event": "Locations now",
+  "HQ region": "Region",
+  "Intent topic": "Topic",
+  "Intent surge": "Interest vs. usual",
+  "Account region": "Region",
 };
 
 export const URGENCIES: SignalUrgency[] = ["CRITICAL", "HIGH", "MEDIUM"];

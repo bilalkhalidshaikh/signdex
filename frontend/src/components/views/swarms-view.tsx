@@ -15,7 +15,7 @@ export function SwarmsView({ feed }: ViewProps) {
   async function deploy(industry: Industry) {
     const targets = feed.allSignals.filter((s) => s.industry === industry && s.achroCallStatus === "PENDING");
     if (targets.length === 0) return;
-    if (live && !window.confirm(`Dispatch ${targets.length} lead(s) to AchroCall PRODUCTION? Real outbound calls may be placed.`)) return;
+    if (live && !window.confirm(`Start ${targets.length} real ${targets.length === 1 ? "call" : "calls"}? This will place live outbound calls to these prospects.`)) return;
     setBusy(industry);
     let ok = 0;
     for (const s of targets) {
@@ -24,15 +24,15 @@ export function SwarmsView({ feed }: ViewProps) {
         feed.applySignal(res.signal);
         ok += 1;
       } catch (e) {
-        toast({ title: `Swarm halted at ${s.companyName}`, description: e instanceof Error ? e.message : "Dispatch failed", variant: "error" });
+        toast({ title: `Campaign stopped at ${s.companyName}`, description: e instanceof Error ? e.message : "Couldn't queue the call.", variant: "error" });
         break;
       }
     }
     setBusy(null);
     if (ok > 0) {
       toast({
-        title: `Swarm deployed: ${industry}`,
-        description: `${ok} lead${ok === 1 ? "" : "s"} dispatched to AchroCall${live ? "" : " (Sandbox Mode)"}`,
+        title: `Campaign started: ${industry}`,
+        description: `${ok} ${ok === 1 ? "call" : "calls"} queued${live ? "" : " (demo mode)"}`,
         variant: "success",
       });
     }
@@ -41,8 +41,8 @@ export function SwarmsView({ feed }: ViewProps) {
   return (
     <>
       <PageHeader
-        title="Campaign Swarms"
-        subtitle="One swarm per industry. Deploy a swarm to dispatch every pending lead in that vertical to AchroCall in sequence."
+        title="Campaigns"
+        subtitle="One campaign per industry. Start a campaign to queue a call for every lead in that industry that hasn't been called yet."
         connection={feed.connection}
       />
 
@@ -60,14 +60,14 @@ export function SwarmsView({ feed }: ViewProps) {
               <div>
                 <h2 className="text-base font-semibold tracking-tight text-slate-900">{ind}</h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  {list.length} signals • avg AI fit {avg || "—"} • {sources.join(", ") || "no sources yet"}
+                  {list.length} {list.length === 1 ? "lead" : "leads"} • average fit score {avg || "—"} • {sources.join(", ") || "no sources yet"}
                 </p>
               </div>
               <div className="grid grid-cols-3 gap-3 text-center">
                 {[
-                  ["Pending", pending, "text-slate-800"],
-                  ["In flight", inFlight, "text-amber-600"],
-                  ["Completed", done, "text-emerald-600"],
+                  ["Not called", pending, "text-slate-800"],
+                  ["Calling", inFlight, "text-amber-600"],
+                  ["Called", done, "text-emerald-600"],
                 ].map(([l, v, c]) => (
                   <div key={l as string} className="rounded-lg bg-slate-50 py-3">
                     <p className={`text-2xl font-semibold tabular-nums ${c}`}>{v}</p>
@@ -79,7 +79,7 @@ export function SwarmsView({ feed }: ViewProps) {
                 <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
                   <div className="h-full rounded-full bg-achrocall transition-all" style={{ width: `${pct}%` }} />
                 </div>
-                <p className="mt-2 text-xs text-slate-500">{pct}% of swarm dispatched</p>
+                <p className="mt-2 text-xs text-slate-500">{pct}% of leads called or in the queue</p>
               </div>
               <button
                 type="button"
@@ -88,7 +88,7 @@ export function SwarmsView({ feed }: ViewProps) {
                 className="btn btn-primary mt-auto"
               >
                 {busy === ind ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
-                Deploy swarm ({pending})
+                Start Campaign ({pending})
               </button>
             </section>
           );

@@ -27,10 +27,25 @@ const config: Config = {
           "0%, 100%": { transform: "scaleY(0.25)" },
           "50%": { transform: "scaleY(1)" },
         },
+        "slide-left": {
+          "0%": { opacity: "0", transform: "translateX(32px)" },
+          "100%": { opacity: "1", transform: "none" },
+        },
+        "slide-right": {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "none" },
+        },
+        "fade-in": {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
       },
       animation: {
         fresh: "slide-in 0.3s ease-out, fresh-ring 1.4s ease-out 3",
         "slide-in": "slide-in 0.3s ease-out",
+        "slide-left": "slide-left 0.25s ease-out",
+        "slide-right": "slide-right 0.22s cubic-bezier(0.22, 1, 0.36, 1)",
+        "fade-in": "fade-in 0.2s ease-out",
         bar: "bar 0.9s ease-in-out infinite",
       },
     },

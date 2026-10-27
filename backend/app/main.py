@@ -40,19 +40,20 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title="B2B AI Lead Signal Radar API",
-    description="Autonomous phone-automation lead pipeline synced with AchroCall (achrocall.com)",
+    title="SignDex Lead Radar API",
+    description="Find qualified B2B leads and queue AI outbound calls through AchroCall (achrocall.com).",
     version="1.0.0",
     lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=settings.cors_origin_list,
+    allow_origin_regex=settings.cors_origin_regex or None,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):

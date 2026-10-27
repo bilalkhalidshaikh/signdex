@@ -60,6 +60,8 @@ class SignalRow(Base):
     call_log: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     source_channel: Mapped[str | None] = mapped_column(String(48), nullable=True)
     source_telemetry: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    state: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     __table_args__ = (
         Index("ix_b2b_signals_detected", "detected_timestamp"),
@@ -78,6 +80,8 @@ def _add_missing_columns(sync_conn) -> None:
         ("call_log", "JSON"),
         ("source_channel", "VARCHAR(48)"),
         ("source_telemetry", "JSON"),
+        ("state", "VARCHAR(2)"),
+        ("city", "VARCHAR(64)"),
     ):
         if name not in existing:
             sync_conn.execute(text(f"ALTER TABLE b2b_signals ADD COLUMN {name} {ddl}"))

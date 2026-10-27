@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { getAnalytics, getConfig, getMetrics, getPipeline, listSignals, streamUrl } from "@/lib/api";
+import { matchesFilters } from "@/lib/search";
 import { toast } from "@/lib/toast";
 import {
   SIGNAL_LABELS,
@@ -28,19 +29,11 @@ export interface TermEvent {
 
 const NO_FILTERS: Filters = { signalType: "ALL", industry: "ALL", urgency: "ALL" };
 
-function matches(s: B2BSignal, f: Filters) {
-  return (
-    (f.signalType === "ALL" || s.signalType === f.signalType) &&
-    (f.industry === "ALL" || s.industry === f.industry) &&
-    (f.urgency === "ALL" || s.signalUrgency === f.urgency)
-  );
-}
-
 function ingestLine(s: B2BSignal): Pick<TermEvent, "tag" | "text"> {
   const hot = s.signalUrgency === "CRITICAL" || s.signalUrgency === "HIGH";
   return {
     tag: hot ? "RADAR" : "INGEST",
-    text: `${hot ? "High-intent match detected" : "Signal ingested"} via ${SOURCE_LABELS[s.sourceChannel]}: ${s.companyName} · ${SIGNAL_LABELS[s.signalType]} · ${s.signalUrgency} · fit ${s.aiOpportunityScore}`,
+    text: `${hot ? "New high-priority lead" : "New lead"}: ${s.companyName} (${SIGNAL_LABELS[s.signalType].toLowerCase()}, found on ${SOURCE_LABELS[s.sourceChannel]}). Fit score ${s.aiOpportunityScore}.`,
   };
 }
 
@@ -100,12 +93,12 @@ export function useSignalFeed(filters: Filters) {
         booted.current = true;
         const now = Date.now();
         setEvents([
-          { id: ++eventSeq.current, ts: now, tag: "SYS", text: "Sandbox ingestion engine online" },
+          { id: ++eventSeq.current, ts: now, tag: "SYS", text: "Lead feed is live (demo data)" },
           {
             id: ++eventSeq.current,
             ts: now,
             tag: "SYS",
-            text: `AchroCall routing: ${c.achrocallMode.toUpperCase()} · live provider APIs awaiting client paid API keys`,
+            text: c.achrocallMode === "live" ? "AI calling system connected" : "AI calling runs in demo mode; no real calls are placed",
           },
           ...list
             .slice(0, 6)
@@ -163,12 +156,12 @@ export function useSignalFeed(filters: Filters) {
       setConnection("live");
       if (wasDown) {
         wasDown = false;
-        pushEvent("SYS", "Stream re-established; resynced feed");
+        pushEvent("SYS", "Back online. Lead list refreshed");
         void reload();
       }
     };
     es.onerror = () => {
-      if (!wasDown) pushEvent("SYS", "Stream interrupted; reconnecting…");
+      if (!wasDown) pushEvent("SYS", "Connection lost. Reconnecting…");
       wasDown = true;
       setConnection("reconnecting");
     };
@@ -192,13 +185,12 @@ export function useSignalFeed(filters: Filters) {
       if (seen.has(key)) return;
       seen.add(key);
       if (s.achroCallStatus === "DISPATCHED_TO_ACHROCALL") {
-        pushEvent("WEBHOOK", `Lead payload dispatched to AchroCall (${s.achroCallReference ?? "ref pending"}): ${s.companyName}`);
-        pushEvent("VAPI", `Outbound AI call queued for ${s.decisionMaker.name} @ ${s.companyName}`);
+        pushEvent("WEBHOOK", `Call queued: ${s.decisionMaker.name} at ${s.companyName}`);
       } else if (s.achroCallStatus === "CALL_COMPLETED") {
-        pushEvent("ACHROCALL", `Call completed: ${s.companyName} · ${s.callLog?.outcome ?? "outcome received"}`);
+        pushEvent("ACHROCALL", `Call finished: ${s.companyName}. ${s.callLog?.outcome ?? "Result received"}`);
         toast({
-          title: `AchroCall call completed: ${s.companyName}`,
-          description: s.callLog ? `${s.callLog.outcome} • voice log ready` : "Outcome received",
+          title: `Call completed: ${s.companyName}`,
+          description: s.callLog ? `${s.callLog.outcome}. Transcript is ready.` : "Result received.",
           variant: "success",
         });
       }
@@ -206,7 +198,7 @@ export function useSignalFeed(filters: Filters) {
 
     es.addEventListener("ping", () => {
       pings.current += 1;
-      if (pings.current % 6 === 0) pushEvent("SYS", "Stream heartbeat OK");
+      if (pings.current % 6 === 0) pushEvent("SYS", "Connection healthy");
     });
 
     return () => {
@@ -216,7 +208,7 @@ export function useSignalFeed(filters: Filters) {
   }, [applySignal, reload, pushEvent]);
 
   const signals = useMemo(
-    () => allSignals.filter((s) => matches(s, filters)),
+    () => allSignals.filter((s) => matchesFilters(s, filters)),
     [allSignals, filters],
   );
 

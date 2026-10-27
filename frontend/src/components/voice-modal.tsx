@@ -119,9 +119,9 @@ function VoiceSession({ signal, onClose, onReplay }: SessionProps) {
     <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[88vh] w-[min(40rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-float focus:outline-none">
       <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-5">
         <div className="min-w-0">
-          <Dialog.Title className="truncate text-lg font-semibold text-slate-900">AI Pitch Demo — {signal.companyName}</Dialog.Title>
+          <Dialog.Title className="truncate text-lg font-semibold text-slate-900">Sample AI Call — {signal.companyName}</Dialog.Title>
           <Dialog.Description className="mt-0.5 text-sm text-slate-500">
-            Outbound AchroCall AI receptionist pitch to {signal.decisionMaker.name}, {signal.decisionMaker.title}
+            How the AI would open a call with {signal.decisionMaker.name}, {signal.decisionMaker.title}
           </Dialog.Description>
         </div>
         <Dialog.Close aria-label="Close" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900">
@@ -135,7 +135,7 @@ function VoiceSession({ signal, onClose, onReplay }: SessionProps) {
             <Bot className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-sm font-medium text-slate-900">Ava • AchroCall AI</p>
+            <p className="text-sm font-medium text-slate-900">Ava · AI caller</p>
             <p className="text-xs text-slate-500">
               {phase === "connecting" && "Connecting…"}
               {phase === "live" && (speaker === "agent" ? "Speaking" : speaker === "prospect" ? "Listening" : "Connected")}
@@ -150,7 +150,7 @@ function VoiceSession({ signal, onClose, onReplay }: SessionProps) {
             type="button"
             onClick={() => setSound((v) => !v)}
             aria-pressed={sound}
-            aria-label={sound ? "Mute AI voice" : "Unmute AI voice"}
+            aria-label={sound ? "Mute the call" : "Unmute the call"}
             className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
           >
             {sound ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
@@ -167,7 +167,7 @@ function VoiceSession({ signal, onClose, onReplay }: SessionProps) {
       <div className="min-h-[16rem] flex-1 space-y-3 overflow-y-auto p-5" aria-live="polite">
         {phase === "connecting" && (
           <div className="flex items-center gap-2 text-sm text-slate-500">
-            <Loader2 className="h-4 w-4 animate-spin" /> Establishing simulated WebRTC session…
+            <Loader2 className="h-4 w-4 animate-spin" /> Starting the sample call…
           </div>
         )}
         {phase === "error" && <p className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
@@ -178,7 +178,7 @@ function VoiceSession({ signal, onClose, onReplay }: SessionProps) {
             </div>
             <div className={cn("max-w-[82%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed", l.speaker === "agent" ? "rounded-tl-sm bg-slate-100 text-slate-800" : "rounded-tr-sm bg-indigo-50 text-slate-800")}>
               <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wider text-slate-500">
-                {l.speaker === "agent" ? "Ava (AI)" : `${signal.decisionMaker.name.split(" ")[0]} (simulated)`}
+                {l.speaker === "agent" ? "Ava (AI)" : `${signal.decisionMaker.name.split(" ")[0]} (demo)`}
               </p>
               {l.text}
             </div>
@@ -189,8 +189,8 @@ function VoiceSession({ signal, onClose, onReplay }: SessionProps) {
 
       <div className="flex flex-col gap-3 border-t border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-slate-500">
-          {session?.note ?? "Simulated session. No real call is placed."}
-          {soundOn ? " Voice is synthesized in your browser." : ""}
+          {session?.note ?? "Demo call. No real call is placed."}
+          {soundOn ? " The voice plays through your device." : ""}
         </p>
         <div className="flex gap-2">
           {(phase === "ended" || phase === "error") && (

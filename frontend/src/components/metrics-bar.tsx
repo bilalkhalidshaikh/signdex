@@ -38,7 +38,7 @@ interface Props {
 
 export function MetricsBar({ signals, range, now, perLocation, loading }: Props) {
   const { latest, prior, label } = trendWindows(signals, range, now);
-  const vs = `vs prior ${label}`;
+  const vs = `vs previous ${label}`;
 
   const scoreNow = avg(latest.map((s) => s.aiOpportunityScore));
   const scorePrior = avg(prior.map((s) => s.aiOpportunityScore));
@@ -53,7 +53,7 @@ export function MetricsBar({ signals, range, now, perLocation, loading }: Props)
   const dash = loading && signals.length === 0;
   const tiles: Tile[] = [
     {
-      label: "New signals",
+      label: "New leads",
       value: dash ? "—" : String(signals.length),
       icon: Radar,
       tone: "bg-indigo-50 text-indigo-600",
@@ -61,32 +61,32 @@ export function MetricsBar({ signals, range, now, perLocation, loading }: Props)
       caption: vs,
     },
     {
-      label: "Avg intent score",
+      label: "Average fit score",
       value: dash ? "—" : signals.length ? avg(signals.map((s) => s.aiOpportunityScore)).toFixed(1) : "—",
       icon: Gauge,
       tone: "bg-violet-50 text-violet-600",
       trend: scoreDelta === null ? undefined : delta(scoreDelta, " pts"),
-      caption: scoreDelta === null ? "AI opportunity score" : vs,
+      caption: scoreDelta === null ? "out of 100" : vs,
     },
     {
-      label: "High-fit B2B targets",
+      label: "High-fit leads",
       value: dash ? "—" : String(highFit.length),
       icon: Target,
       tone: "bg-emerald-50 text-emerald-600",
       trend: delta(highNow - highPrior),
-      caption: `score 80+ · ${vs}`,
+      caption: `fit score 80+ · ${vs}`,
     },
     {
-      label: "Est. pipeline ARR",
+      label: "Est. pipeline value",
       value: dash ? "—" : formatCurrencyCompact(arr),
       icon: TrendingUp,
       tone: "bg-amber-50 text-amber-600",
-      caption: `score-weighted · ${formatCurrencyCompact(perLocation)}/location assumed`,
+      caption: `weighted by fit · assumes ${formatCurrencyCompact(perLocation)} per location`,
     },
   ];
 
   return (
-    <section aria-label="Key metrics" className="grid grid-cols-1 gap-5 sm:grid-cols-2 2xl:grid-cols-4">
+    <section aria-label="Key metrics" className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {tiles.map(({ label, value, icon: Icon, tone, trend, caption }) => (
         <div key={label} className="panel p-6">
           <div className="flex items-center justify-between gap-3">

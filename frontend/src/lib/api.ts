@@ -5,7 +5,10 @@ import type {
   B2BSignal,
   DispatchResponse,
   Filters,
+  Industry,
   Metrics,
+  ParsedQuery,
+  SimulateResponse,
   VapiSession,
 } from "./types";
 
@@ -31,7 +34,7 @@ export class ApiError extends Error {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const base = getApiUrl();
   if (!base) {
-    throw new ApiError("The backend URL is not configured. Set NEXT_PUBLIC_API_URL to your deployed API (https) and redeploy.", 0);
+    throw new ApiError("This app isn't connected to its server yet. An administrator needs to set the server address (NEXT_PUBLIC_API_URL) and redeploy.", 0);
   }
   let res: Response;
   try {
@@ -43,8 +46,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const mixed = typeof window !== "undefined" && window.location.protocol === "https:" && base.startsWith("http:");
     throw new ApiError(
       mixed
-        ? `Blocked: this page is HTTPS but the API (${base}) is HTTP. Serve the backend over HTTPS.`
-        : `Cannot reach the API at ${base}. Is the backend running, and does its CORS_ORIGINS include this site?`,
+        ? `The browser blocked the connection: this page is secure (https) but the server address (${base}) is not. The server needs an https address.`
+        : `Can't reach the server at ${base}. Check that it's running and that it allows this website.`,
       0,
     );
   }
@@ -77,8 +80,27 @@ export const getPayloadPreview = (signalId: string) =>
 export const getMetrics =() => request<Metrics>("/api/b2b-signals/metrics");
 export const getAnalytics = () => request<Analytics>("/api/b2b-signals/analytics");
 
-export const simulateSignal = () =>
-  request<B2BSignal>("/api/b2b-signals/simulate", { method: "POST", body: "{}" });
+export interface SimulateOptions {
+  query?: string;
+  industry?: Industry | null;
+  state?: string | null;
+  count?: number;
+}
+
+/** Generates signals; with a `query` they match it (industry / state / city / name), see backend queryparse.py. */
+export const simulateSignals = (opts: SimulateOptions = {}) =>
+  request<SimulateResponse>("/api/b2b-signals/simulate", {
+    method: "POST",
+    body: JSON.stringify({
+      query: opts.query || undefined,
+      industry: opts.industry ?? undefined,
+      state: opts.state ?? undefined,
+      count: opts.count ?? 1,
+    }),
+  });
+
+export const parseQuery = (q: string) =>
+  request<ParsedQuery>(`/api/b2b-signals/parse?q=${encodeURIComponent(q)}`);
 
 export const dispatchToAchroCall = (signalId: string) =>
   request<DispatchResponse>("/api/achrocall/dispatch", {

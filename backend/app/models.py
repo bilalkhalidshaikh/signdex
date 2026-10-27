@@ -21,6 +21,8 @@ class Industry(str, Enum):
     AUTOMOTIVE = "Automotive Services"
     PROPERTY_MANAGEMENT = "Property Management"
     COMMERCIAL_HVAC = "Commercial HVAC"
+    ROOFING = "Roofing & Exteriors"
+    PLUMBING_ELECTRICAL = "Plumbing & Electrical"
 
 
 class SignalType(str, Enum):
@@ -92,6 +94,8 @@ class B2BSignal(CamelModel):
     source: str = "simulated"  # data mode: "simulated" (sandbox) or "live"
     source_channel: SourceChannel = SourceChannel.LINKEDIN_RECRUITING
     source_telemetry: list[TelemetryItem] = []
+    state: str | None = None  # 2-letter US state code
+    city: str | None = None
     achrocall_reference: str | None = Field(default=None, alias="achroCallReference")
     dispatched_at: datetime | None = None
     call_log: CallLog | None = None
@@ -99,8 +103,32 @@ class B2BSignal(CamelModel):
 
 # --- Requests ---------------------------------------------------------------
 class SimulateRequest(CamelModel):
+    """Explicit fields win over anything parsed out of `query`."""
+
+    query: str | None = Field(default=None, max_length=200)
     industry: Industry | None = None
+    state: str | None = Field(default=None, max_length=40)  # "FL" or "Florida"
     signal_type: SignalType | None = None
+    count: int = Field(default=1, ge=1, le=5)
+
+
+class ParsedQuery(CamelModel):
+    """Structured reading of a free-text search such as "Roofing companies in FL"."""
+
+    query: str
+    industry: Industry | None = None
+    state: str | None = None
+    state_name: str | None = None
+    city: str | None = None
+    signal_type: SignalType | None = None
+    keywords: list[str] = []  # leftover words (e.g. a company name) matched against company/contact text
+    recognized: bool = False  # True when an industry, state or signal type was understood
+
+
+class SimulateResponse(CamelModel):
+    signals: list[B2BSignal]
+    matched: ParsedQuery
+    note: str | None = None
 
 
 class DispatchRequest(CamelModel):

@@ -1,6 +1,6 @@
 "use client";
 
-import { ShieldAlert } from "lucide-react";
+import { Info } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { getApiUrl } from "@/lib/api";
 import { formatCurrencyCompact } from "@/lib/utils";
@@ -10,28 +10,28 @@ export function SettingsView({ feed, onOpenPaywall }: ViewProps) {
   const c = feed.config;
   const rows: [string, string][] = c
     ? [
-        ["API base URL", getApiUrl() || "not configured"],
-        ["API version", c.version],
-        ["Database", c.database],
-        ["AchroCall mode", c.achrocallMode.toUpperCase()],
-        ["AchroCall webhook", c.achrocallWebhookConfigured ? "Configured" : "Not set (sandbox)"],
-        ["Sandbox call completion", c.sandboxAutoComplete ? `Auto, ${c.sandboxCallSeconds[0]}–${c.sandboxCallSeconds[1]} s after dispatch` : "Disabled"],
-        ["Pipeline ARR assumption", `${formatCurrencyCompact(c.arrPerLocation)} per location / year (placeholder)`],
-        ["Demo data refresh", `Rebuilt on startup if older than ${c.reseedIfStaleHours} h`],
-        ["Vapi live voice", c.vapiLiveConfigured ? "Keys present" : "Not configured (scripted browser voice)"],
+        ["Server address", getApiUrl() || "Not set"],
+        ["Version", c.version],
+        ["Data storage", c.database === "postgresql" ? "PostgreSQL" : "Local file (demo)"],
+        ["Calling mode", c.achrocallMode === "live" ? "Live" : "Demo"],
+        ["Calling system connection", c.achrocallWebhookConfigured ? "Connected" : "Not connected (demo)"],
+        ["Demo calls", c.sandboxAutoComplete ? `Finish on their own after ${c.sandboxCallSeconds[0]}–${c.sandboxCallSeconds[1]} seconds` : "Stay in the queue"],
+        ["Value per location", `${formatCurrencyCompact(c.arrPerLocation)} per year (an estimate, not real pricing)`],
+        ["Demo data refresh", `Refreshed on restart if older than ${c.reseedIfStaleHours} hours`],
+        ["Live voice", c.vapiLiveConfigured ? "Connected" : "Not connected (the demo uses a scripted voice)"],
       ]
     : [];
 
   return (
     <>
       <PageHeader
-        title="System Settings"
-        subtitle="Read-only runtime configuration. Secrets are never displayed."
+        title="Settings"
+        subtitle="How this workspace is set up. This page is read-only, and passwords and keys are never shown."
         connection={feed.connection}
       />
 
       <section className="panel p-6">
-        <h2 className="mb-5 text-base font-semibold tracking-tight text-slate-900">Runtime</h2>
+        <h2 className="mb-5 text-base font-semibold tracking-tight text-slate-900">Workspace setup</h2>
         {rows.length === 0 && <div className="h-40 animate-pulse rounded-lg bg-slate-50" />}
         {rows.map(([k, v]) => (
           <div key={k} className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 border-t border-slate-100 py-3 first:border-t-0 first:pt-0">
@@ -44,13 +44,13 @@ export function SettingsView({ feed, onOpenPaywall }: ViewProps) {
       <section className="panel p-6">
         <h2 className="mb-3 text-base font-semibold tracking-tight text-slate-900">Going live</h2>
         <p className="max-w-3xl text-sm leading-relaxed text-slate-500">
-          Production is enabled through backend environment variables (see <span className="mono text-slate-600">backend/.env.example</span>):{" "}
-          <span className="mono text-slate-600">ACHROCALL_WEBHOOK_URL</span>, <span className="mono text-slate-600">ACHROCALL_API_KEY</span>,{" "}
-          <span className="mono text-slate-600">ACHROCALL_CALLBACK_SECRET</span>, and <span className="mono text-slate-600">DATABASE_URL</span>{" "}
-          for PostgreSQL. Live signal providers are provisioned separately.
+          Going live means your technical team adds a few server settings (listed in <span className="mono text-slate-600">backend/.env.example</span>):
+          the AchroCall connection address and key (<span className="mono text-slate-600">ACHROCALL_WEBHOOK_URL</span>,{" "}
+          <span className="mono text-slate-600">ACHROCALL_API_KEY</span>), a key for call results (<span className="mono text-slate-600">ACHROCALL_CALLBACK_SECRET</span>),
+          and a production database (<span className="mono text-slate-600">DATABASE_URL</span>). Live lead sources are set up separately.
         </p>
         <button type="button" onClick={onOpenPaywall} className="btn btn-ghost mt-5">
-          <ShieldAlert className="h-4 w-4" /> Production access notice
+          <Info className="h-4 w-4" /> What changes when we go live
         </button>
       </section>
     </>

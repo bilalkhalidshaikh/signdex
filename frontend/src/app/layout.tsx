@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SignDex | B2B AI Lead Signal Radar",
-  description: "Live B2B buying-signal ingestion synced with AchroCall for autonomous AI phone outreach.",
+  title: "SignDex | Lead Radar",
+  description: "Find qualified B2B leads and start AI outbound calls.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

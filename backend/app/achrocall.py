@@ -86,11 +86,11 @@ async def send_to_achrocall(s: B2BSignal) -> tuple[str, str, dict[str, Any]]:
             resp = await client.post(settings.achrocall_webhook_url, json=payload, headers=headers)
     except httpx.HTTPError as exc:
         logger.error("AchroCall dispatch failed: %s", exc)
-        raise AchroCallDispatchError(f"Could not reach AchroCall: {exc.__class__.__name__}") from exc
+        raise AchroCallDispatchError("Couldn't reach the AI calling system. Please try again in a moment.") from exc
 
     if resp.status_code >= 300:
         logger.error("AchroCall rejected lead %s: HTTP %s", s.id, resp.status_code)
-        raise AchroCallDispatchError(f"AchroCall responded with HTTP {resp.status_code}")
+        raise AchroCallDispatchError(f"The AI calling system declined this lead (error {resp.status_code}).")
 
     reference = f"ac_{uuid.uuid4().hex[:12]}"
     try:

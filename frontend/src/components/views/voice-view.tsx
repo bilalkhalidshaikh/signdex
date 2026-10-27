@@ -13,17 +13,17 @@ export function VoiceView({ feed, onPitch, onViewLog }: ViewProps) {
   const avg = timed.length ? Math.round(timed.reduce((n, s) => n + (s.callLog?.durationSeconds ?? 0), 0) / timed.length) : 0;
 
   const stats = [
-    ["Calls in progress", String(inFlight.length)],
+    ["Calling now", String(inFlight.length)],
     ["Calls completed", String(done.length)],
     ["Demos booked", String(booked)],
-    ["Avg call length", avg ? `${Math.floor(avg / 60)}:${String(avg % 60).padStart(2, "0")}` : "—"],
+    ["Average call length", avg ? `${Math.floor(avg / 60)}:${String(avg % 60).padStart(2, "0")}` : "—"],
   ];
 
   return (
     <>
       <PageHeader
-        title="Voice Core (AchroCall)"
-        subtitle="Outbound AI receptionist calls and their voice logs. Sandbox calls are simulated and transcripts are scripted."
+        title="AI Calling System"
+        subtitle="Outbound AI calls to your leads, with a transcript for each one. In demo mode the calls and transcripts are simulated."
         connection={feed.connection}
       />
 
@@ -37,10 +37,10 @@ export function VoiceView({ feed, onPitch, onViewLog }: ViewProps) {
       </div>
 
       <section className="panel overflow-x-auto p-6">
-        <h2 className="mb-5 text-base font-semibold tracking-tight text-slate-900">Call queue</h2>
+        <h2 className="mb-5 text-base font-semibold tracking-tight text-slate-900">Outbound Call Queue</h2>
         {calls.length === 0 ? (
           <p className="py-10 text-center text-sm text-slate-500">
-            No calls yet. Dispatch a lead from Live Radar and its call will appear here.
+            No calls yet. Choose &lsquo;Dispatch Call&rsquo; on a lead in Lead Radar and it will show up here.
           </p>
         ) : (
           <table className="w-full min-w-[40rem] text-left text-sm">
@@ -62,18 +62,18 @@ export function VoiceView({ feed, onPitch, onViewLog }: ViewProps) {
                     {s.achroCallStatus === "CALL_COMPLETED" ? (
                       <span className="text-emerald-600">Completed</span>
                     ) : (
-                      <span className="text-amber-600">In progress…</span>
+                      <span className="text-amber-600">In call queue…</span>
                     )}
                   </td>
                   <td className="py-3 pr-4 text-slate-600">{s.callLog?.outcome ?? "—"}</td>
                   <td className="space-x-2 py-3 text-right">
                     {s.callLog && (
                       <button type="button" onClick={() => onViewLog(s)} className="btn btn-ghost py-1.5">
-                        <ScrollText className="h-4 w-4" /> Voice log
+                        <ScrollText className="h-4 w-4" /> View Transcript
                       </button>
                     )}
                     <button type="button" onClick={() => onPitch(s)} className="btn btn-ghost py-1.5">
-                      <Mic className="h-4 w-4" /> Pitch demo
+                      <Mic className="h-4 w-4" /> Preview AI Call
                     </button>
                   </td>
                 </tr>

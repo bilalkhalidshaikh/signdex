@@ -13,7 +13,8 @@ from .achrocall import AchroCallDispatchError, build_export_profile, build_lead_
 from .broadcaster import broadcaster, format_sse
 from .config import get_settings
 from .db import SessionLocal, get_session
-from .generator import generate_signal
+from .generator import generate_batch
+from .geo import US_STATES, normalize_state
 from .models import (
     AchroCallCallback,
     AchroCallStatus,
@@ -26,13 +27,16 @@ from .models import (
     HealthResponse,
     Industry,
     Metrics,
+    ParsedQuery,
     PipelineHealth,
     SignalType,
     SignalUrgency,
     SimulateRequest,
+    SimulateResponse,
     VapiSession,
     VapiTriggerRequest,
 )
+from .queryparse import parse_query
 from .vapi import build_pitch, build_sandbox_call_log
 
 logger = logging.getLogger("radar.routes")
@@ -45,7 +49,7 @@ _background: set[asyncio.Task] = set()
 async def _load(session: AsyncSession, signal_id: UUID):
     row = await repo.get_row(session, str(signal_id))
     if row is None:
-        raise HTTPException(status_code=404, detail="Signal not found")
+        raise HTTPException(status_code=404, detail="That lead no longer exists.")
     return row
 
 
@@ -178,15 +182,55 @@ async def stream(request: Request):
     )
 
 
-@router.post("/b2b-signals/simulate", response_model=B2BSignal, status_code=201)
+@router.get("/b2b-signals/parse", response_model=ParsedQuery)
+async def parse_search(q: str = Query("", max_length=200)):
+    """How a free-text search is understood (industry / state / signal type / leftover keywords)."""
+    return parse_query(q)
+
+
+@router.post("/b2b-signals/simulate", response_model=SimulateResponse, status_code=201)
 async def simulate(body: SimulateRequest | None = None, session: AsyncSession = Depends(get_session)):
+    """Generate `count` signals, persist and broadcast them. When a `query` is given (e.g. "Roofing companies in FL"),
+    every generated signal matches what it asks for; explicit `industry` / `state` / `signalType` override the query."""
     body = body or SimulateRequest()
+    parsed = parse_query(body.query)
+    state = normalize_state(body.state) or parsed.state
+    industry = body.industry or parsed.industry
+    signal_type = body.signal_type or parsed.signal_type
+    if body.state and not normalize_state(body.state):
+        raise HTTPException(status_code=422, detail=f"We don't recognize the state {body.state!r}. Use a US state name or two-letter code, such as FL.")
+
+    # Leftover words (e.g. "Smith", or text we can't map to an industry/state) become the company-name prefix, so every
+    # generated lead matches what was searched and the feed can never come back empty after a simulate.
+    name_hint = " ".join(k for k in parsed.keywords if k.isalnum())[:40].strip().title() or None
+
     names = await repo.existing_company_names(session)
-    signal = generate_signal(names, industry=body.industry, signal_type=body.signal_type)
-    await repo.add_signals(session, [signal])
-    await _publish("signal.created", signal)
-    logger.info("simulated signal %s (%s, score %d)", signal.company_name, signal.signal_type.value, signal.ai_opportunity_score)
-    return signal
+    # A city from the query is honoured only when the state still matches it (explicit state overrides can disagree).
+    city = parsed.city if parsed.city and state == parsed.state else None
+    signals = generate_batch(body.count, names, industry=industry, state=state, city=city, signal_type=signal_type, name_hint=name_hint)
+    await repo.add_signals(session, signals)
+    for s in signals:
+        await _publish("signal.created", s)
+
+    note = None
+    if parsed.query and not (industry or state or signal_type):
+        note = (
+            f"We didn't recognize an industry or state in “{parsed.query}”, so the new leads use your search words as the company name"
+            if name_hint
+            else f"We couldn't match “{parsed.query}” to an industry or state, so these are general leads"
+        )
+    matched = parsed.model_copy(
+        update={
+            "industry": industry,
+            "state": state,
+            "state_name": US_STATES[state][0] if state else None,
+            "city": city,
+            "signal_type": signal_type,
+            "recognized": bool(industry or state or signal_type),
+        }
+    )
+    logger.info("simulated %d signal(s) for %r -> industry=%s state=%s", len(signals), parsed.query, industry, state)
+    return SimulateResponse(signals=signals, matched=matched, note=note)
 
 
 @router.get("/b2b-signals/{signal_id}", response_model=B2BSignal)
@@ -210,7 +254,7 @@ async def export_signal(signal_id: UUID, session: AsyncSession = Depends(get_ses
 async def dispatch(body: DispatchRequest, session: AsyncSession = Depends(get_session)):
     row = await _load(session, body.signal_id)
     if row.achrocall_status != AchroCallStatus.PENDING.value:
-        raise HTTPException(status_code=409, detail="Signal was already dispatched to AchroCall")
+        raise HTTPException(status_code=409, detail="A call is already queued for this lead.")
 
     signal = repo.to_model(row)
     try:
@@ -230,9 +274,9 @@ async def dispatch(body: DispatchRequest, session: AsyncSession = Depends(get_se
         schedule_sandbox_completion(str(updated.id))
 
     message = (
-        f"Lead sent to AchroCall ({reference})"
+        f"{updated.company_name} was sent to AchroCall (ref {reference})"
         if mode == "live"
-        else f"{updated.company_name} queued for an outbound AI call (ref {reference})"
+        else f"{updated.company_name} was added to the AI call queue (ref {reference})"
     )
     return DispatchResponse(mode=mode, reference=reference, message=message, payload=payload, signal=updated)
 

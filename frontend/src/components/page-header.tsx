@@ -14,11 +14,11 @@ export function StatusBadge({ connection }: { connection: Connection }) {
       )}
     >
       {live
-        ? "🟢 Sandbox Mode • AchroCall Active"
+        ? "🟢 Demo mode · AI calling ready"
         : connection === "connecting"
           ? "🟠 Connecting…"
           : connection === "offline"
-            ? "🔴 Backend not configured"
+            ? "🔴 Server not connected"
             : "🟠 Reconnecting…"}
     </span>
   );

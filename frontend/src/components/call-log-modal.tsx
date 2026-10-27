@@ -19,7 +19,7 @@ export function CallLogModal({ signal, onClose }: { signal: B2BSignal | null; on
           <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-5">
             <div className="min-w-0">
               <Dialog.Title className="truncate text-lg font-semibold text-slate-900">
-                AchroCall Voice Log — {signal?.companyName}
+                Call Transcript — {signal?.companyName}
               </Dialog.Title>
               <Dialog.Description className="mt-0.5 text-sm text-slate-500">
                 Outbound AI call to {signal?.decisionMaker.name}, {signal?.decisionMaker.title}
@@ -42,13 +42,13 @@ export function CallLogModal({ signal, onClose }: { signal: B2BSignal | null; on
                       <Clock className="h-3.5 w-3.5" /> {fmt(log.durationSeconds)}
                     </span>
                   )}
-                  <span className="text-slate-500">Simulated sandbox call</span>
+                  <span className="text-slate-500">Demo call</span>
                 </div>
                 <p className="text-sm leading-relaxed text-slate-600">{log.summary}</p>
               </div>
 
               <div className="flex-1 space-y-3 overflow-y-auto p-5">
-                {log.transcript.length === 0 && <p className="text-sm text-slate-500">No transcript was provided for this call.</p>}
+                {log.transcript.length === 0 && <p className="text-sm text-slate-500">No transcript is available for this call.</p>}
                 {log.transcript.map((t, i) => (
                   <div key={i} className={cn("flex gap-2.5", t.speaker === "prospect" && "flex-row-reverse")}>
                     <div className={cn("mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full", t.speaker === "agent" ? "bg-achrocall/15 text-achrocall" : "bg-brand/15 text-indigo-600")}>
